@@ -1,6 +1,6 @@
 ---
 - name: Ensure pip3 is installed
-  apt:
+  yum:
     name: python3-pip
     state: present
   become: yes
@@ -19,26 +19,26 @@
     url: "{{ amazon_url }}"
     return_content: yes
   register: webpage_content
-  ignore_errors: yes
-
-- name: Check if fetching laptops was successful
-  fail:
-    msg: "Failed to fetch Dell laptops from Amazon."
-  when: webpage_content.status != 200
 
 - name: Parse the webpage content
   set_fact:
-    laptops: "{{ webpage_content.content | regex_findall('Dell [^<]+') }}"
-  when: webpage_content.status == 200
+    laptops: "{{ webpage_content.content | regex_findall('Dell [^<]+') | map('regex_replace', 'Dell ', '') | map('regex_replace', '[^a-zA-Z0-9 ]', '') | unique }}"
+    prices: "{{ webpage_content.content | regex_findall('\\$[0-9,]+\\.[0-9]{2}') }}"
+
+- name: Combine laptop names and prices
+  set_fact:
+    laptop_details: "{{ laptops | zip(prices) | map('join', '|') | join(',') }}"
+
+- name: Debug laptop details variable
+  debug:
+    var: laptop_details
 
 - name: Create Excel file with laptop details
   command: >
-    python3 roles/fetch_dell_laptops/files/create_excel.py "{{ laptops | join(',') }}"
+    python3 roles/fetch_dell_laptops/files/create_excel.py "{{ laptop_details }}"
   delegate_to: localhost
-  when: webpage_content.status == 200
 
 - name: Send the Excel file via email
   command: >
     python3 roles/fetch_dell_laptops/files/send_email.py "{{ email }}" "/tmp/dell_laptops.xlsx"
   delegate_to: localhost
-  when: webpage_content.status == 200
