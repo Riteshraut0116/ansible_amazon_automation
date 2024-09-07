@@ -1,0 +1,5 @@
+---
+- name: Fetch Dell Laptops from Amazon and Send Email
+  hosts: targets
+  roles:
+    - fetch_dell_laptops

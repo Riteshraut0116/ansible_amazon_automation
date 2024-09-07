@@ -1,0 +1,35 @@
+---
+- name: Ensure pip3 is installed
+  yum:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Ensure required Python packages are installed
+  pip:
+    name:
+      - requests
+      - openpyxl
+    state: present
+    executable: pip3
+  become: yes
+
+- name: Fetch Dell laptops from Amazon
+  uri:
+    url: "{{ amazon_url }}"
+    return_content: yes
+  register: webpage_content
+
+- name: Parse the webpage content
+  set_fact:
+    laptops: "{{ webpage_content.content | regex_findall('Dell [^<]+') }}"
+
+- name: Create Excel file with laptop details
+  command: >
+    python3 roles/fetch_dell_laptops/files/create_excel.py "{{ laptops | join(',') }}"
+  delegate_to: localhost
+
+- name: Send the Excel file via email
+  command: >
+    python3 roles/fetch_dell_laptops/files/send_email.py "{{ email }}" "/tmp/dell_laptops.xlsx"
+  delegate_to: localhost
