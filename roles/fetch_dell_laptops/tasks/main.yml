@@ -19,17 +19,26 @@
     url: "{{ amazon_url }}"
     return_content: yes
   register: webpage_content
+  ignore_errors: yes
+
+- name: Check if fetching laptops was successful
+  fail:
+    msg: "Failed to fetch Dell laptops from Amazon."
+  when: webpage_content.status != 200
 
 - name: Parse the webpage content
   set_fact:
     laptops: "{{ webpage_content.content | regex_findall('Dell [^<]+') }}"
+  when: webpage_content.status == 200
 
 - name: Create Excel file with laptop details
   command: >
     python3 roles/fetch_dell_laptops/files/create_excel.py "{{ laptops | join(',') }}"
   delegate_to: localhost
+  when: webpage_content.status == 200
 
 - name: Send the Excel file via email
   command: >
     python3 roles/fetch_dell_laptops/files/send_email.py "{{ email }}" "/tmp/dell_laptops.xlsx"
   delegate_to: localhost
+  when: webpage_content.status == 200
