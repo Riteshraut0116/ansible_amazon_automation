@@ -3,6 +3,7 @@
   yum:
     name: python3-pip
     state: present
+    use_backend: dnf4
   become: yes
 
 - name: Ensure required Python packages are installed
